@@ -1,0 +1,58 @@
+name: Release
+
+# Push a tag like v0.1.0 to build for all three platforms in parallel
+# and publish the artifacts to a GitHub Release. The workflow also runs
+# on manual dispatch so we can re-build the latest tag from the UI.
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform_flag: '--linux'
+          - os: windows-latest
+            platform_flag: '--win'
+          - os: macos-latest
+            platform_flag: '--mac'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build renderer + main
+        run: bun run build
+
+      - name: Package & publish to GitHub Release
+        env:
+          # electron-builder uploads the artifacts to the Release that
+          # matches the pushed tag.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Code signing / notarization intentionally skipped for v1 —
+          # users will see "unidentified developer" warnings until we wire
+          # up signing certs.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: bunx --bun electron-builder ${{ matrix.platform_flag }} --publish always
