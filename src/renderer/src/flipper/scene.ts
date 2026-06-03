@@ -5,7 +5,7 @@ import type { Theme } from '../../../shared/types'
 import { BUTTONS, MAP_URL, MODEL_URL, SHORT_MS, type ButtonId } from './constants'
 import { ScreenMirror } from './screen'
 import { buildPlanarUVs } from './uv'
-import { loadBundle } from './bundle'
+import { SCREEN_BYTES } from './screen-canvas'
 
 type ScreenOrient = { flipU: boolean; flipV: boolean; rot90: boolean }
 
@@ -45,9 +45,6 @@ export async function createScene(
   const transparent = options.transparent ?? true
   const orient: ScreenOrient = { ...DEFAULT_ORIENT, ...(options.initialOrient ?? {}) }
 
-  // ---- Bundle (ScreenCanvas constructor lives here) -------------------
-  const bundle = await loadBundle()
-
   // ---- Renderer / camera / scene --------------------------------------
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: transparent })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -83,7 +80,6 @@ export async function createScene(
 
   // ---- Screen mirror plumbing ----------------------------------------
   const screen = new ScreenMirror()
-  screen.attachRenderer(new bundle.ScreenCanvas(screen.canvas, { scale: 4 }))
 
   let screenMesh: THREE.Mesh | null = null
   let screenUVbase: Float32Array | null = null
@@ -160,7 +156,7 @@ export async function createScene(
     setMatColor('Flipper_Main', t.body)
     setMatColor('Flipper_Orange', t.accent)
     setMatColor('Flipper_Black', t.trim)
-    screen.setBackgroundColor(t.screen, bundle.ScreenCanvas)
+    screen.setBackgroundColor(t.screen)
   }
 
   // ---- Load model + mapping ------------------------------------------
@@ -441,7 +437,6 @@ export async function createScene(
 
   return {
     screen,
-    bundle,
     applyTheme,
     setOrientation: (next: Partial<ScreenOrient>) => {
       Object.assign(orient, next)
@@ -455,7 +450,7 @@ export async function createScene(
     },
     pressButton,
     releaseButton,
-    drawTestPattern: () => drawTestPattern(screen, bundle.SCREEN_BYTES),
+    drawTestPattern: () => drawTestPattern(screen, SCREEN_BYTES),
     dispose: () => {
       cancelAnimationFrame(raf)
       ro.disconnect()
@@ -482,7 +477,6 @@ export async function createScene(
 
 export type MirrorHandle = {
   screen: ScreenMirror
-  bundle: Awaited<ReturnType<typeof loadBundle>>
   applyTheme(theme: Theme): void
   setOrientation(next: Partial<ScreenOrient>): void
   /** Firmware orientation 0..3 — rotates the 3D model accordingly. */

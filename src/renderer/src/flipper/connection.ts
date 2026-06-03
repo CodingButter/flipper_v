@@ -1,11 +1,13 @@
 import type { MirrorHandle } from './scene'
-import type { ButtonId } from './constants'
-import type {
-  FlipperRpcClient,
-  SerialPort,
-  WebSerialTransport
-} from './bundle'
-import type { ConnState } from '../../../shared/types'
+import type { ButtonId, ConnState } from '../../../shared/types'
+import {
+  WebSerialTransport,
+  requestFlipperPort,
+  getGrantedFlipperPort
+} from './transport'
+import { FlipperRpcClient } from './rpc-client'
+import { sendInput, startScreenStream } from './gui'
+import { SCREEN_BYTES } from './screen-canvas'
 
 export type ConnEvents = {
   onState: (s: ConnState, msg?: string) => void
@@ -56,10 +58,9 @@ export class Connection {
     // Request the port up-front while the user gesture is still active,
     // BEFORE we await any teardown. Storing the unresolved promise is
     // fine; only the call site matters for gesture preservation.
-    const { bundle } = this.mirror
     let portPromise: Promise<SerialPort>
     try {
-      portPromise = bundle.requestFlipperPort()
+      portPromise = requestFlipperPort()
     } catch (err) {
       portPromise = Promise.reject(err)
     }
@@ -71,10 +72,9 @@ export class Connection {
    * in the settings window). No user gesture needed.
    */
   async connectGranted(): Promise<void> {
-    const { bundle } = this.mirror
     return this.runConnect(
       (async (): Promise<SerialPort> => {
-        const port = await bundle.getGrantedFlipperPort()
+        const port = await getGrantedFlipperPort()
         if (!port) {
           throw new Error('No granted Flipper port — click Connect to pick one.')
         }
@@ -105,7 +105,7 @@ export class Connection {
   async sendInput(button: ButtonId, type: 'press' | 'short' | 'release'): Promise<void> {
     if (!this.client || this.state !== 'connected') return
     try {
-      await this.mirror.bundle.sendInput(this.client, button, type)
+      await sendInput(this.client, button, type)
     } catch (err) {
       this.events.onLog?.(`sendInput failed: ${String(err)}`, 'err')
     }
@@ -149,15 +149,14 @@ export class Connection {
   }
 
   private async connectInner(portPromise: Promise<SerialPort>): Promise<void> {
-    const { bundle } = this.mirror
     try {
       this.setState('connecting', 'opening port…')
       const port = await portPromise
-      this.transport = new bundle.WebSerialTransport(port)
+      this.transport = new WebSerialTransport(port)
       await this.transport.open()
 
       this.setState('connecting', 'starting RPC…')
-      const client = new bundle.FlipperRpcClient()
+      const client = new FlipperRpcClient()
       client.addEventListener('state', (ev: Event) => {
         const detail = (ev as CustomEvent<{ state: string }>).detail
         // Only surface RPC state while we're still mid-connect — once
@@ -175,8 +174,8 @@ export class Connection {
       // rotation on actual changes — the firmware sends orientation in
       // every frame even when the app hasn't switched modes.
       let lastOrient = -1
-      this.stopStream = await bundle.startScreenStream(client, (f) => {
-        if (f.data.byteLength !== bundle.SCREEN_BYTES) return
+      this.stopStream = await startScreenStream(client, (f) => {
+        if (f.data.byteLength !== SCREEN_BYTES) return
         try {
           this.mirror.screen.drawFrame(new Uint8Array(f.data), f.orientation)
           if (f.orientation !== lastOrient) {

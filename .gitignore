@@ -9,3 +9,6 @@ dist/
 .claude/
 .mcp.json
 *.tsbuildinfo
+
+# Windows alternate-data-stream metadata (from files saved by browsers)
+*:Zone.Identifier
