@@ -99,5 +99,7 @@ jobs:
           if (-not $tag.StartsWith("v")) {
             $tag = "v$(node -e 'console.log(require(\"./package.json\").version)')"
           }
-          $files = Get-ChildItem dist -Include *.exe,*.blockmap,latest.yml -File -Recurse | ForEach-Object { $_.FullName }
+          # Top-level only — avoid pulling helpers from win-unpacked\
+          # (e.g. elevate.exe, raw unpacked Flipper V.exe).
+          $files = Get-ChildItem dist\*.exe, dist\*.blockmap, dist\latest.yml -File | ForEach-Object { $_.FullName }
           gh release upload $tag @files --clobber
