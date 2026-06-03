@@ -10,9 +10,9 @@ type Props = {
 }
 
 /**
- * Tiny overlay shown on hover. Connect / settings / pin / hide. The
- * connection state is reflected in the Connect button's color: green when
- * live, red on error, dim when idle.
+ * Tiny overlay shown on hover. Connect / settings / pin / hide / quit.
+ * The connection state is reflected in the Connect button's color: green
+ * when live, red on error, dim when idle.
  */
 export function Toolbar({
   visible,
@@ -97,11 +97,19 @@ export function Toolbar({
         </button>
         <button
           type="button"
-          title="Hide window"
+          title="Hide window (still runs in tray)"
           onClick={() => window.flipperV.window.hideFloating()}
           className="flex h-7 w-7 items-center justify-center rounded text-white/80 hover:bg-white/10 hover:text-white"
         >
           <HideIcon />
+        </button>
+        <button
+          type="button"
+          title="Quit Flipper V"
+          onClick={() => window.flipperV.app.quit()}
+          className="flex h-7 w-7 items-center justify-center rounded text-white/80 hover:bg-red-500/80 hover:text-white"
+        >
+          <CloseIcon />
         </button>
       </div>
     </div>
@@ -128,6 +136,14 @@ function HideIcon(): JSX.Element {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  )
+}
+function CloseIcon(): JSX.Element {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   )
 }
