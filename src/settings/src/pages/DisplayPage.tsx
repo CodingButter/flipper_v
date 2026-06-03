@@ -57,6 +57,16 @@ export function DisplayPage({ prefs }: Props): JSX.Element {
               />
             }
           />
+          <Row
+            label="Tray-only"
+            description="Hide the floating window from the taskbar. The system tray icon stays available so you can still toggle visibility."
+            control={
+              <Switch
+                checked={prefs.trayOnly}
+                onCheckedChange={(v) => set({ trayOnly: v })}
+              />
+            }
+          />
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Opacity</Label>

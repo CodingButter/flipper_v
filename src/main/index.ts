@@ -3,6 +3,7 @@ import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { join } from 'node:path'
 import { createFloatingWindow, createSettingsWindow, getFloatingWindow } from './windows'
 import { registerIpcHandlers } from './ipc'
+import { setupAutoUpdater } from './updater'
 
 /**
  * Flipper Zero USB identifiers. We match numerically because Electron
@@ -50,28 +51,35 @@ function setupWebSerial(): void {
 }
 
 function setupTray(): void {
-  // The tray is now the *only* persistent UI surface — the floating
-  // window has skipTaskbar:true, so without a tray icon the user could
-  // hide the device and have no way to bring it back. We resolve the
-  // icon from both the dev path (out/main → ../../resources) and the
-  // packaged path (resources gets copied next to the app) so it works
-  // in both environments.
+  // The tray is the user's primary way to find the app even when the
+  // floating window is hidden / behind other windows. Resolve from dev
+  // (out/main → ../../resources) AND packaged paths so it works in both.
   const candidates = [
     join(__dirname, '../../resources/tray.png'),
     join(process.resourcesPath ?? '', 'tray.png')
   ]
   let icon = nativeImage.createEmpty()
+  let loadedFrom = ''
   for (const p of candidates) {
     const candidate = nativeImage.createFromPath(p)
     if (!candidate.isEmpty()) {
       icon = candidate
+      loadedFrom = p
       break
     }
   }
   if (icon.isEmpty()) {
     console.warn('[flipper-v] tray icon not found at any of:', candidates)
+  } else {
+    // `quality: 'best'` gets Chromium's Lanczos-style resize instead of
+    // its default nearest-neighbor — important when the source PNG is
+    // 1014×1001 and the target is 16×16. Without it the icon turns into
+    // an unrecognizable blob.
+    const sized = icon.resize({ width: 16, height: 16, quality: 'best' })
+    if (!sized.isEmpty()) icon = sized
+    console.log('[flipper-v] tray icon loaded from', loadedFrom)
   }
-  tray = new Tray(icon.resize({ width: 16, height: 16 }))
+  tray = new Tray(icon)
   tray.setToolTip('Flipper V — Virtual Flipper Zero')
   tray.setContextMenu(
     Menu.buildFromTemplate([
@@ -113,6 +121,7 @@ app.whenReady().then(() => {
   })
 
   setupWebSerial()
+  setupAutoUpdater()
   registerIpcHandlers()
   createFloatingWindow()
   setupTray()

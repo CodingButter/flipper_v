@@ -20,7 +20,8 @@ const defaults: Schema = {
     chromaKey: false,
     chromaColor: '#00ff00',
     keyBindings: DEFAULT_KEY_BINDINGS,
-    splashImage: null
+    splashImage: null,
+    trayOnly: false
   }
 }
 

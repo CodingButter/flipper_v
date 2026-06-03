@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IpcEvent, IpcInvoke } from '../shared/types'
-import type { ConnStatus, Prefs, Theme } from '../shared/types'
+import type { ConnStatus, Prefs, Theme, UpdateStatus } from '../shared/types'
 
 const api = {
   themes: {
@@ -68,7 +68,21 @@ const api = {
     }
   },
   app: {
-    quit: (): Promise<void> => ipcRenderer.invoke(IpcInvoke.QuitApp)
+    quit: (): Promise<void> => ipcRenderer.invoke(IpcInvoke.QuitApp),
+    version: (): Promise<string> => ipcRenderer.invoke(IpcInvoke.AppVersion),
+    openReleasesPage: (url: string): Promise<void> =>
+      ipcRenderer.invoke(IpcInvoke.OpenReleasesPage, url)
+  },
+  updates: {
+    get: (): Promise<UpdateStatus> => ipcRenderer.invoke(IpcInvoke.UpdateGet),
+    check: (): Promise<void> => ipcRenderer.invoke(IpcInvoke.UpdateCheck),
+    download: (): Promise<void> => ipcRenderer.invoke(IpcInvoke.UpdateDownload),
+    install: (): Promise<void> => ipcRenderer.invoke(IpcInvoke.UpdateInstall),
+    onState: (cb: (status: UpdateStatus) => void): (() => void) => {
+      const fn = (_: unknown, s: UpdateStatus): void => cb(s)
+      ipcRenderer.on(IpcEvent.UpdateState, fn)
+      return () => ipcRenderer.off(IpcEvent.UpdateState, fn)
+    }
   }
 }
 

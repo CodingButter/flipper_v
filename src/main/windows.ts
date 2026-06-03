@@ -1,9 +1,33 @@
 import { BrowserWindow, app, screen, shell } from 'electron'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { is } from '@electron-toolkit/utils'
 import { getPrefs } from './store'
 
 const PRELOAD = join(__dirname, '../preload/index.js')
+
+/**
+ * Resolve the app-icon file path from either the dev location (out/main →
+ * ../../resources) or the packaged location (resources sits next to the
+ * exe). Returns `undefined` if neither exists so the BrowserWindow falls
+ * back to the platform default icon.
+ *
+ * We pass a path (not a `NativeImage`) so Electron handles the
+ * platform-specific sizing on its own — passing a large `NativeImage`
+ * via `icon:` was crashing Electron's main process on Windows.
+ */
+function resolveIconPath(): string | undefined {
+  const candidates = [
+    join(__dirname, '../../resources/icon.png'),
+    join(process.resourcesPath ?? '', 'icon.png')
+  ]
+  for (const p of candidates) {
+    if (existsSync(p)) return p
+  }
+  return undefined
+}
+
+const APP_ICON_PATH = resolveIconPath()
 
 /** Resolve a renderer entry — dev points at the vite server, prod loads files. */
 function rendererURL(entry: 'renderer' | 'settings'): string {
@@ -64,12 +88,11 @@ export function createFloatingWindow(): BrowserWindow {
     resizable: true,
     backgroundColor: '#00000000',
     alwaysOnTop: prefs.alwaysOnTop,
-    // We live in the system tray instead of the taskbar — a virtual
-    // peripheral isn't really an "app" in the windowed sense, and a
-    // taskbar button for a transparent floating object reads as noise.
-    // The tray icon handles show/hide/quit (see setupTray in index.ts).
-    skipTaskbar: true,
+    // Off by default — users opt in via Display → "Tray-only" if they
+    // want the floating window hidden from the taskbar.
+    skipTaskbar: prefs.trayOnly,
     title: 'Flipper V',
+    ...(APP_ICON_PATH ? { icon: APP_ICON_PATH } : {}),
     webPreferences: {
       preload: PRELOAD,
       sandbox: false,
@@ -109,6 +132,7 @@ export function createSettingsWindow(): BrowserWindow {
     show: false,
     title: 'Flipper V Settings',
     backgroundColor: '#0a0a0a',
+    ...(APP_ICON_PATH ? { icon: APP_ICON_PATH } : {}),
     webPreferences: {
       preload: PRELOAD,
       sandbox: false,
@@ -135,6 +159,9 @@ export function applyPrefsToFloating(): void {
   floatingWindow.setAlwaysOnTop(prefs.alwaysOnTop, prefs.alwaysOnTop ? 'floating' : 'normal')
   floatingWindow.setOpacity(prefs.opacity)
   floatingWindow.setIgnoreMouseEvents(prefs.clickThrough, { forward: true })
+  // setSkipTaskbar applies live so the user can toggle tray-only mode
+  // without restarting the app.
+  floatingWindow.setSkipTaskbar(prefs.trayOnly)
 }
 
 /** Move the floating window by a delta. Used by drag-anywhere logic. */

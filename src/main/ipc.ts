@@ -1,4 +1,4 @@
-import { ipcMain, app } from 'electron'
+import { ipcMain, app, shell } from 'electron'
 import { IpcEvent, IpcInvoke } from '../shared/types'
 import type { ConnStatus, Prefs, Theme } from '../shared/types'
 import {
@@ -12,6 +12,7 @@ import {
   sendToFloating
 } from './windows'
 import { deleteTheme, getPrefs, listThemes, saveTheme, setPrefs } from './store'
+import { checkForUpdates, downloadUpdate, getUpdateStatus, quitAndInstall } from './updater'
 
 /**
  * Last connection status pushed by the floating renderer. Cached so the
@@ -94,4 +95,18 @@ export function registerIpcHandlers(): void {
   ipcMain.on(IpcEvent.ConnectionPortGranted, () =>
     sendToFloating(IpcEvent.ConnectionPortGranted)
   )
+
+  ipcMain.handle(IpcInvoke.AppVersion, () => app.getVersion())
+  ipcMain.handle(IpcInvoke.OpenReleasesPage, (_e, url: string) => {
+    // Don't blindly trust a renderer-supplied URL — only allow GitHub
+    // releases pages for our repo. Anything else gets dropped.
+    if (typeof url === 'string' && url.startsWith('https://github.com/CodingButter/flipper_v/')) {
+      void shell.openExternal(url)
+    }
+  })
+
+  ipcMain.handle(IpcInvoke.UpdateGet, () => getUpdateStatus())
+  ipcMain.handle(IpcInvoke.UpdateCheck, () => checkForUpdates())
+  ipcMain.handle(IpcInvoke.UpdateDownload, () => downloadUpdate())
+  ipcMain.handle(IpcInvoke.UpdateInstall, () => quitAndInstall())
 }

@@ -76,6 +76,12 @@ export type Prefs = {
    *     screen mesh.
    */
   splashImage: string | null
+  /**
+   * When true, the floating window is hidden from the OS taskbar and
+   * lives only in the system tray. When false (default), the window
+   * shows up in the taskbar like any other app.
+   */
+  trayOnly: boolean
 }
 
 /** Connection lifecycle as seen by the UI. */
@@ -110,8 +116,34 @@ export const IpcInvoke = {
   /** Floating renderer pushes its current connection status to main. */
   ConnectionPush: 'connection:push',
   /** Read the cached status from main (used by settings on mount). */
-  ConnectionGet: 'connection:get'
+  ConnectionGet: 'connection:get',
+  /** Current app version (from main's package.json). */
+  AppVersion: 'app:version',
+  /** Open the latest GitHub release page in the default browser. */
+  OpenReleasesPage: 'app:open-releases',
+  /** Read the current update status (cached in main). */
+  UpdateGet: 'update:get',
+  /** Tell main to check for updates now. */
+  UpdateCheck: 'update:check',
+  /** Tell main to download the available update. */
+  UpdateDownload: 'update:download',
+  /** Quit and run the installer. */
+  UpdateInstall: 'update:install'
 } as const
+
+/**
+ * Auto-update state machine. Mirrors electron-updater's lifecycle plus
+ * our own UI-friendly idle / checking states. The renderer's button
+ * label and behavior derive from this.
+ */
+export type UpdateStatus =
+  | { kind: 'idle' }
+  | { kind: 'checking' }
+  | { kind: 'up-to-date'; current: string; latest: string }
+  | { kind: 'available'; current: string; latest: string }
+  | { kind: 'downloading'; percent: number; bytesPerSecond?: number }
+  | { kind: 'downloaded'; latest: string }
+  | { kind: 'error'; message: string }
 
 /** Main → renderer, one-way broadcast. */
 export const IpcEvent = {
@@ -129,7 +161,9 @@ export const IpcEvent = {
    */
   ConnectionPortGranted: 'connection:port-granted',
   /** Floating → settings, status changed (relayed via main). */
-  ConnectionState: 'connection:state'
+  ConnectionState: 'connection:state',
+  /** Main → renderers, broadcast UpdateStatus on every transition. */
+  UpdateState: 'update:state'
 } as const
 
 export type IpcInvokeChannel = (typeof IpcInvoke)[keyof typeof IpcInvoke]

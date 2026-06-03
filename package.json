@@ -1,6 +1,6 @@
 {
   "name": "flipper-v",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A floating virtual Flipper Zero — 3D model on your desktop that mirrors a real device over WebSerial.",
   "main": "out/main/index.js",
   "author": "codingbutter",
@@ -21,7 +21,8 @@
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^3.0.0",
     "@protobuf-ts/runtime": "^2.11.1",
-    "electron-store": "^8.2.0"
+    "electron-store": "^8.2.0",
+    "electron-updater": "^6.8.3"
   },
   "devDependencies": {
     "@electron-toolkit/tsconfig": "^1.0.1",
