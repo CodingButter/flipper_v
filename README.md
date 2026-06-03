@@ -35,15 +35,17 @@ The app **auto-updates** from the in-app About page once installed — when a ne
 
 ### Smart App Control (Windows 11)
 
-On Windows 11 with Smart App Control enabled, you may see this on first run:
+The installer is **correctly signed**, but a brand-new release may still get blocked by Smart App Control:
 
 <p align="center">
   <img src="resources/SAC.jpg" alt="Smart App Control block dialog" width="540" />
 </p>
 
-The installer **is** correctly signed — SAC blocks based on file/publisher *reputation*, not signature validity. Reputation builds automatically as more users install, so this clears itself over time. While you wait, you have three options:
+This isn't a signature problem — SAC blocks based on file *reputation*, separate from whether the cert is valid. Every new release has a brand-new file hash, so Microsoft has to see enough copies of *each* installer before it stops asking. The publisher rep accumulates across releases too, so over time SAC blocks newer releases less and less often, but expect early releases (and the very first installs of any new version) to trigger this. We also submit each new release to Microsoft directly to speed up the process — typical turnaround is 1–3 business days.
 
-**1. Wait it out.** Every install on a SAC-enabled machine adds to the publisher rep. After Microsoft sees enough copies, SAC stops asking.
+While reputation builds, you have three options:
+
+**1. Wait it out.** Once Microsoft has reviewed the submission or seen enough installs, SAC stops asking — usually within a few days of a release.
 
 **2. Build from source.** Follow [Develop](#develop) below and you'll have a working local build that SAC doesn't scrutinize.
 
