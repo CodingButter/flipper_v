@@ -23,7 +23,8 @@ win:
   target:
     - nsis
     - portable
-  sign: ./build/sign.js
+  signtoolOptions:
+    sign: ./build/sign.js
 linux:
   target:
     - AppImage
