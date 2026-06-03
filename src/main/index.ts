@@ -50,36 +50,60 @@ function setupWebSerial(): void {
 }
 
 function setupTray(): void {
-  // The tray icon is optional — only construct if an icon ships.
-  try {
-    const icon = nativeImage.createFromPath(join(__dirname, '../../resources/tray.png'))
-    if (icon.isEmpty()) return
-    tray = new Tray(icon.resize({ width: 16, height: 16 }))
-    tray.setToolTip('Flipper V — Floating Flipper')
-    tray.setContextMenu(
-      Menu.buildFromTemplate([
-        {
-          label: 'Show floating device',
-          click: (): void => {
-            const w = getFloatingWindow()
-            if (w) w.show()
-            else createFloatingWindow()
-          }
-        },
-        { label: 'Open settings…', click: (): void => void createSettingsWindow() },
-        { type: 'separator' },
-        { label: 'Quit', role: 'quit' }
-      ])
-    )
-    tray.on('click', () => {
-      const w = getFloatingWindow()
-      if (w?.isVisible()) w.hide()
-      else if (w) w.show()
-      else createFloatingWindow()
-    })
-  } catch {
-    // No tray icon yet — that's fine, settings are still reachable via the floating window.
+  // The tray is now the *only* persistent UI surface — the floating
+  // window has skipTaskbar:true, so without a tray icon the user could
+  // hide the device and have no way to bring it back. We resolve the
+  // icon from both the dev path (out/main → ../../resources) and the
+  // packaged path (resources gets copied next to the app) so it works
+  // in both environments.
+  const candidates = [
+    join(__dirname, '../../resources/tray.png'),
+    join(process.resourcesPath ?? '', 'tray.png')
+  ]
+  let icon = nativeImage.createEmpty()
+  for (const p of candidates) {
+    const candidate = nativeImage.createFromPath(p)
+    if (!candidate.isEmpty()) {
+      icon = candidate
+      break
+    }
   }
+  if (icon.isEmpty()) {
+    console.warn('[flipper-v] tray icon not found at any of:', candidates)
+  }
+  tray = new Tray(icon.resize({ width: 16, height: 16 }))
+  tray.setToolTip('Flipper V — Virtual Flipper Zero')
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      {
+        label: 'Show device',
+        click: (): void => {
+          const w = getFloatingWindow()
+          if (w) w.show()
+          else createFloatingWindow()
+        }
+      },
+      {
+        label: 'Hide device',
+        click: (): void => {
+          getFloatingWindow()?.hide()
+        }
+      },
+      { type: 'separator' },
+      { label: 'Settings…', click: (): void => void createSettingsWindow() },
+      { type: 'separator' },
+      { label: 'Quit', role: 'quit' }
+    ])
+  )
+  // Left-click is the obvious "toggle visibility" gesture on Windows.
+  // macOS tray icons typically open the menu on any click; that's
+  // already wired via setContextMenu so we don't double-handle it.
+  tray.on('click', () => {
+    const w = getFloatingWindow()
+    if (w?.isVisible()) w.hide()
+    else if (w) w.show()
+    else createFloatingWindow()
+  })
 }
 
 app.whenReady().then(() => {

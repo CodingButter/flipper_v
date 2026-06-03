@@ -64,7 +64,11 @@ export function createFloatingWindow(): BrowserWindow {
     resizable: true,
     backgroundColor: '#00000000',
     alwaysOnTop: prefs.alwaysOnTop,
-    skipTaskbar: false,
+    // We live in the system tray instead of the taskbar — a virtual
+    // peripheral isn't really an "app" in the windowed sense, and a
+    // taskbar button for a transparent floating object reads as noise.
+    // The tray icon handles show/hide/quit (see setupTray in index.ts).
+    skipTaskbar: true,
     title: 'Flipper V',
     webPreferences: {
       preload: PRELOAD,

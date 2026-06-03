@@ -55,4 +55,8 @@ jobs:
           # users will see "unidentified developer" warnings until we wire
           # up signing certs.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: bunx --bun electron-builder ${{ matrix.platform_flag }} --publish always
+        # `npx` (Node) instead of `bunx --bun` (Bun) — electron-builder's
+        # transitive bluebird + source-map-support combo crashes under
+        # the Bun runtime ("Column must be greater than or equal to 0").
+        # Node runs it cleanly across all three platforms.
+        run: npx electron-builder ${{ matrix.platform_flag }} --publish always
