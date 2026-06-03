@@ -49,13 +49,11 @@ While reputation builds, you have three options:
 
 **2. Build from source.** Follow [Develop](#develop) below and you'll have a working local build that SAC doesn't scrutinize.
 
-**3. Turn Smart App Control off.** Open **Windows Security → App & browser control → Smart App Control settings** and flip the toggle to **Off**.
+**3. Turn Smart App Control off.** Open **Windows Security → App & browser control → Smart App Control settings** and flip the toggle to **Off**. You can flip it back on the same way after the install if you want — SmartScreen keeps working either way.
 
 <p align="center">
   <img src="resources/SAC-Disable.png" alt="Disable Smart App Control in Windows Security" width="720" />
 </p>
-
-> ⚠️ **Disabling SAC is a one-way switch.** Microsoft locks the setting once you turn it off — you can't turn it back on without a clean Windows reinstall. Only do this if you're comfortable without SAC. SmartScreen still works afterwards, so you don't lose all protection.
 
 ## Features
 
