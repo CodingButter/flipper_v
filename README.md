@@ -28,10 +28,6 @@ bun run dev
 (opened via the hover toolbar → ⚙). `npm` works too — the project doesn't
 depend on bun-specific APIs.
 
-> **Developing on WSL2?** USB devices don't reach WSL by default. See
-> [`scripts/README.md`](scripts/README.md) for a one-time setup that
-> auto-attaches your Flipper to WSL on every logon.
-
 ## Build distributables locally
 
 ```bash
