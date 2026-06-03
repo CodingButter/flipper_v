@@ -1,6 +1,6 @@
 {
   "name": "flipper-v",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A floating virtual Flipper Zero — 3D model on your desktop that mirrors a real device over WebSerial.",
   "main": "out/main/index.js",
   "author": {

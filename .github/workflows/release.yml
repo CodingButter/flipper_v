@@ -46,29 +46,58 @@ jobs:
       - name: Build renderer + main
         run: bun run build
 
-      - name: Install AzureSignTool (Windows)
-        if: matrix.os == 'windows-latest'
-        run: dotnet tool install --global AzureSignTool
-
-      - name: Package & publish to GitHub Release
+      # --- Non-Windows: build + publish in one shot --------------------
+      - name: Build & publish (non-Windows)
+        if: matrix.os != 'windows-latest'
         env:
-          # electron-builder uploads the artifacts to the Release that
-          # matches the pushed tag.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS keychain auto-discovery off — we don't have an Apple
-          # Developer ID cert yet.
+          # macOS keychain auto-discovery off — no Apple Developer ID
+          # cert yet.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-          # Azure Artifact Signing — build/sign.js no-ops when
-          # AZURE_CERT_PROFILE_NAME is unset, so secrets missing →
-          # unsigned build (does not fail).
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          AZURE_ENDPOINT: ${{ secrets.AZURE_ENDPOINT }}
-          AZURE_CODE_SIGNING_NAME: ${{ secrets.AZURE_CODE_SIGNING_NAME }}
-          AZURE_CERT_PROFILE_NAME: ${{ secrets.AZURE_CERT_PROFILE_NAME }}
         # `npx` (Node) instead of `bunx --bun` (Bun) — electron-builder's
         # transitive bluebird + source-map-support combo crashes under
         # the Bun runtime ("Column must be greater than or equal to 0").
-        # Node runs it cleanly across all three platforms.
         run: npx electron-builder ${{ matrix.platform_flag }} --publish always
+
+      # --- Windows: build unsigned, sign post-hoc, then upload ---------
+      # Microsoft Trusted/Artifact Signing speaks a different API than
+      # Azure Key Vault, so community `AzureSignTool` doesn't work here.
+      # `Azure/trusted-signing-action` is the official path.
+      - name: Build unsigned (Windows)
+        if: matrix.os == 'windows-latest'
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --win --publish never
+
+      - name: Sign Windows EXEs (Trusted Signing)
+        if: matrix.os == 'windows-latest'
+        uses: azure/trusted-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.AZURE_ENDPOINT }}
+          trusted-signing-account-name: ${{ secrets.AZURE_CODE_SIGNING_NAME }}
+          certificate-profile-name: ${{ secrets.AZURE_CERT_PROFILE_NAME }}
+          files-folder: ./dist
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Regenerate latest.yml hashes (Windows)
+        if: matrix.os == 'windows-latest'
+        run: node build/regen-latest-yml.cjs
+
+      - name: Upload Windows artifacts to release
+        if: matrix.os == 'windows-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if (-not $tag.StartsWith("v")) {
+            $tag = "v$(node -e 'console.log(require(\"./package.json\").version)')"
+          }
+          $files = Get-ChildItem dist -Include *.exe,*.blockmap,latest.yml -File -Recurse | ForEach-Object { $_.FullName }
+          gh release upload $tag @files --clobber
