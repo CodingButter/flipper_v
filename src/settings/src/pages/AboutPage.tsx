@@ -11,7 +11,7 @@ export function AboutPage(): JSX.Element {
         <CardHeader className="flex-row items-center gap-4">
           <img src="../mascot.png" alt="" className="h-16 w-16 shrink-0 object-contain" />
           <div className="space-y-1">
-            <CardTitle>Flide</CardTitle>
+            <CardTitle>Flipper V</CardTitle>
             <CardDescription>
               A floating virtual Flipper Zero that mirrors a real device over WebSerial.
             </CardDescription>

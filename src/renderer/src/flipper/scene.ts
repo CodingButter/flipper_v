@@ -17,6 +17,10 @@ export type MirrorEvents = {
   onLog?: (msg: string, kind?: 'ok' | 'err') => void
   onButton?: (id: ButtonId, kind: 'press' | 'short' | 'release') => void
   onModelReady?: () => void
+  /** Left-drag started/continues outside of any mapped button — move the OS window. */
+  onWindowDrag?: (dx: number, dy: number) => void
+  /** Wheel over the device — resize the OS window. Caller decides direction. */
+  onWheelResize?: (dw: number, dh: number) => void
 }
 
 export type SceneOptions = {
@@ -63,8 +67,11 @@ export async function createScene(
   const controls = new OrbitControls(camera, renderer.domElement)
   controls.enableDamping = true
   controls.dampingFactor = 0.08
-  // Left button stays free for button-clicks. Orbit on right-drag.
+  // Left = button-press OR window-drag (decided in pointerdown by raycast).
+  // Right = orbit. We replace the wheel dolly with a window-resize handled
+  // ourselves, otherwise zooming clips the model against the window.
   controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }
+  controls.enableZoom = false
 
   scene.add(new THREE.AmbientLight(0xffffff, 1.15))
   const key = new THREE.DirectionalLight(0xffffff, 2.0)
@@ -170,8 +177,13 @@ export async function createScene(
   ])
 
   const root = gltf.scene
-  scene.add(root)
-  root.updateWorldMatrix(true, true)
+  // Wrap the loaded model in a pivot Group so we can rotate it around
+  // its bounding-sphere center (for the portrait-app feature) without
+  // depending on the GLB's authored origin.
+  const pivot = new THREE.Group()
+  scene.add(pivot)
+  pivot.add(root)
+  pivot.updateWorldMatrix(true, true)
 
   const meshByMat = new Map<string, THREE.Mesh>()
   root.traverse((o: THREE.Object3D) => {
@@ -218,17 +230,43 @@ export async function createScene(
 
   // Front-on landscape view. `n` is the screen front normal; `up` keeps the
   // device's long edge horizontal with the d-pad on the right.
-  const n = new THREE.Vector3(0.879, 0.411, 0.242).normalize()
-  const box = new THREE.Box3().setFromObject(root)
-  const center = box.getCenter(new THREE.Vector3())
+  const cameraNormal = new THREE.Vector3(0.879, 0.411, 0.242).normalize()
+  const sphere = new THREE.Sphere()
+  new THREE.Box3().setFromObject(root).getBoundingSphere(sphere)
+  const sceneCenter = sphere.center.clone()
+  const sphereRadius = sphere.radius
+  // Move pivot so its origin sits at the model's bounding-sphere center
+  // in world space. Then negate that on `root` — net effect: model
+  // stays put visually, but pivot.quaternion now rotates the model
+  // around its true centroid.
+  pivot.position.copy(sceneCenter)
+  root.position.set(-sceneCenter.x, -sceneCenter.y, -sceneCenter.z)
+  pivot.updateWorldMatrix(true, true)
   const up = new THREE.Vector3()
-    .crossVectors(n, new THREE.Vector3(0, 0, 1))
+    .crossVectors(cameraNormal, new THREE.Vector3(0, 0, 1))
     .normalize()
     .multiplyScalar(-1)
   camera.up.copy(up)
-  camera.position.copy(center).addScaledVector(n, 1.15)
-  controls.target.copy(center)
-  controls.update()
+  controls.target.copy(sceneCenter)
+
+  /**
+   * Position the camera so the device's bounding sphere fits ~`fillFactor`
+   * of the window. Sphere-fitting (vs bbox-max-dim fitting) means the
+   * device stays fully visible at every orbit angle — rotating doesn't
+   * push corners outside the window. Recomputed on every resize so the
+   * device scales with the window.
+   */
+  const fillFactor = 0.98
+  function fitCamera(): void {
+    const halfFovV = THREE.MathUtils.degToRad(camera.fov) / 2
+    const distV = sphereRadius / Math.tan(halfFovV)
+    // Horizontal extent: half-fov-h = atan(aspect * tan(halfFovV))
+    const distH = sphereRadius / (camera.aspect * Math.tan(halfFovV))
+    const dist = Math.max(distV, distH) / fillFactor
+    camera.position.copy(sceneCenter).addScaledVector(cameraNormal, dist)
+    controls.update()
+  }
+  fitCamera()
 
   if (options.initialTheme) applyTheme(options.initialTheme)
 
@@ -259,17 +297,40 @@ export async function createScene(
   }
 
   const dom = renderer.domElement
+  /** Set while left-dragging on background (i.e. moving the OS window). */
+  let windowDragId: number | null = null
+
   const onPointerDown = (e: PointerEvent): void => {
     if (e.button !== 0) return
     const btn = hitButton(e)
-    if (!btn) return
-    controls.enabled = false
-    pressed = { btn, startTime: performance.now() }
-    const hl = highlightMeshes.get(btn)
-    if (hl) hl.visible = true
-    events.onButton?.(btn, 'press')
+    if (btn) {
+      controls.enabled = false
+      pressed = { btn, startTime: performance.now() }
+      const hl = highlightMeshes.get(btn)
+      if (hl) hl.visible = true
+      events.onButton?.(btn, 'press')
+      return
+    }
+    // No button hit + left button → start dragging the OS window. The
+    // pointer is captured so we keep receiving move events even if the
+    // OS window leaves the cursor behind for a frame.
+    if (events.onWindowDrag) {
+      windowDragId = e.pointerId
+      dom.setPointerCapture(e.pointerId)
+      controls.enabled = false
+      dom.style.cursor = 'grabbing'
+    }
   }
-  const onPointerUp = (): void => {
+  const onPointerUp = (e: PointerEvent): void => {
+    if (windowDragId !== null && e.pointerId === windowDragId) {
+      try {
+        dom.releasePointerCapture(windowDragId)
+      } catch {
+        /* already released */
+      }
+      windowDragId = null
+      dom.style.cursor = 'default'
+    }
     controls.enabled = true
     if (!pressed) return
     const { btn, startTime } = pressed
@@ -283,32 +344,101 @@ export async function createScene(
     events.onButton?.(btn, 'release')
   }
   const onPointerMove = (e: PointerEvent): void => {
+    if (windowDragId !== null) {
+      // movementX/Y are in CSS pixels, OS window coords are in screen
+      // pixels — close enough at integer DPRs; users won't perceive the
+      // sub-pixel drift on fractional DPI.
+      events.onWindowDrag?.(e.movementX, e.movementY)
+      return
+    }
     if (pressed) return
-    dom.style.cursor = hitButton(e) ? 'pointer' : 'default'
+    const overButton = !!hitButton(e)
+    dom.style.cursor = overButton ? 'pointer' : 'grab'
+  }
+  const onWheel = (e: WheelEvent): void => {
+    if (!events.onWheelResize) return
+    e.preventDefault()
+    // ~6% of window per notch. Square so the window stays roughly square
+    // (the renderer / camera then adjusts via fitCamera).
+    const step = e.deltaY > 0 ? -1 : 1
+    const px = Math.round(container.clientWidth * 0.06) * step
+    events.onWheelResize(px, px)
   }
   dom.addEventListener('pointerdown', onPointerDown)
   window.addEventListener('pointerup', onPointerUp)
   dom.addEventListener('pointermove', onPointerMove)
+  dom.addEventListener('wheel', onWheel, { passive: false })
 
   // ---- Resize + animate -----------------------------------------------
   const onResize = (): void => {
     renderer.setSize(container.clientWidth, container.clientHeight)
     camera.aspect = container.clientWidth / container.clientHeight
     camera.updateProjectionMatrix()
+    fitCamera()
   }
   window.addEventListener('resize', onResize)
   const ro = new ResizeObserver(onResize)
   ro.observe(container)
 
+  // ---- Device rotation (driven by the firmware's orientation field) -
+  // The Flipper firmware reports orientation 0..3 in every screen frame.
+  // Apps that render portrait (0=landscape, 1=portrait CW, 2=180,
+  // 3=portrait CCW) set non-zero values. We rotate the model so the
+  // user sees the device in the orientation they'd physically hold it.
+  let currentRotation = 0
+  let targetRotation = 0
+  const rotAxis = cameraNormal.clone()
+  const ORIENT_TO_ANGLE: Record<number, number> = {
+    0: 0,
+    1: -Math.PI / 2,
+    2: Math.PI,
+    3: Math.PI / 2
+  }
+  function setDeviceOrientation(orient: number): void {
+    targetRotation = ORIENT_TO_ANGLE[orient] ?? 0
+  }
+
   let raf = 0
   const animate = (): void => {
     raf = requestAnimationFrame(animate)
+    // Lerp the device rotation toward target so portrait/landscape
+    // transitions are smooth instead of snapping.
+    if (Math.abs(currentRotation - targetRotation) > 0.001) {
+      currentRotation += (targetRotation - currentRotation) * 0.18
+      pivot.quaternion.setFromAxisAngle(rotAxis, currentRotation)
+    }
     controls.update()
     renderer.render(scene, camera)
   }
   animate()
 
+  // ---- Splash image --------------------------------------------------
+  // Decode a user-supplied (or default) image into a 128x64 framebuffer
+  // and paint it onto the device's screen. Used when no Flipper is
+  // connected so the screen has something on it other than the bare
+  // backlight. Lives on the handle so React owns the lifecycle decision.
+  async function drawSplash(src: string): Promise<void> {
+    const { imageToFramebuffer } = await import('../../../shared/splash')
+    const fb = await imageToFramebuffer(src)
+    screen.drawFrame(fb, 0)
+  }
+
   // ---- Public handle --------------------------------------------------
+  /** Programmatic press from a non-mouse source (keyboard, IPC, etc.). */
+  function pressButton(id: ButtonId): void {
+    const hl = highlightMeshes.get(id)
+    if (hl) hl.visible = true
+    events.onButton?.(id, 'press')
+  }
+  function releaseButton(id: ButtonId, durationMs: number): void {
+    if (!showRegionsAlways) {
+      const hl = highlightMeshes.get(id)
+      if (hl) hl.visible = false
+    }
+    if (durationMs < SHORT_MS) events.onButton?.(id, 'short')
+    events.onButton?.(id, 'release')
+  }
+
   return {
     screen,
     bundle,
@@ -317,10 +447,14 @@ export async function createScene(
       Object.assign(orient, next)
       applyOrient()
     },
+    setDeviceOrientation,
+    drawSplash,
     setShowRegions: (show: boolean) => {
       showRegionsAlways = show
       for (const m of highlightMeshes.values()) m.visible = show
     },
+    pressButton,
+    releaseButton,
     drawTestPattern: () => drawTestPattern(screen, bundle.SCREEN_BYTES),
     dispose: () => {
       cancelAnimationFrame(raf)
@@ -329,6 +463,7 @@ export async function createScene(
       window.removeEventListener('pointerup', onPointerUp)
       dom.removeEventListener('pointerdown', onPointerDown)
       dom.removeEventListener('pointermove', onPointerMove)
+      dom.removeEventListener('wheel', onWheel)
       controls.dispose()
       renderer.dispose()
       renderer.domElement.remove()
@@ -350,6 +485,13 @@ export type MirrorHandle = {
   bundle: Awaited<ReturnType<typeof loadBundle>>
   applyTheme(theme: Theme): void
   setOrientation(next: Partial<ScreenOrient>): void
+  /** Firmware orientation 0..3 — rotates the 3D model accordingly. */
+  setDeviceOrientation(orient: number): void
+  /** Paint a splash image (PNG / BMP / data URL) on the device screen. */
+  drawSplash(src: string): Promise<void>
+  /** Visual + timing press from non-mouse sources (keyboard, IPC). */
+  pressButton(id: ButtonId): void
+  releaseButton(id: ButtonId, durationMs: number): void
   setShowRegions(show: boolean): void
   drawTestPattern(): void
   dispose(): void

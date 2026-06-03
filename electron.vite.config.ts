@@ -43,7 +43,13 @@ export default defineConfig({
     },
     publicDir: resolve(__dirname, 'src/renderer/public'),
     server: {
-      // electron-vite picks the port itself; nothing to set
+      // Pin a port that isn't 5173 (avoids collisions with whatever else
+      // the dev box has on the default Vite port — common on WSL2 with
+      // mirrored networking). strictPort throws fast rather than asking
+      // for an interactive port-change confirmation, which is invisible
+      // when stdin is detached (e.g. background Electron-from-WSL runs).
+      port: 5179,
+      strictPort: true
     }
   }
 })

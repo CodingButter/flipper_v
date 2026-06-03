@@ -1,8 +1,8 @@
-import type { FlideAPI } from './index'
+import type { FlipperVAPI } from './index'
 
 declare global {
   interface Window {
-    flide: FlideAPI
+    flipperV: FlipperVAPI
   }
 }
 

@@ -28,7 +28,7 @@ export function ThemesPage({ prefs, themes }: Props): JSX.Element {
   const custom = useMemo(() => themes.filter((t) => !t.builtin), [themes])
 
   const activate = (id: string): void => {
-    window.flide.prefs.set({ activeThemeId: id })
+    window.flipperV.prefs.set({ activeThemeId: id })
   }
   const startEdit = (t: Theme): void => {
     setEditingId(t.id)
@@ -42,7 +42,7 @@ export function ThemesPage({ prefs, themes }: Props): JSX.Element {
     if (!draft.name.trim()) return
     const id = editingId ?? slugify(draft.name)
     if (!id) return
-    await window.flide.themes.save({
+    await window.flipperV.themes.save({
       id,
       name: draft.name.trim(),
       body: draft.body,
@@ -51,11 +51,11 @@ export function ThemesPage({ prefs, themes }: Props): JSX.Element {
       screen: draft.screen,
       builtin: false
     })
-    await window.flide.prefs.set({ activeThemeId: id })
+    await window.flipperV.prefs.set({ activeThemeId: id })
     setEditingId(id)
   }
   const remove = async (id: string): Promise<void> => {
-    await window.flide.themes.delete(id)
+    await window.flipperV.themes.delete(id)
     if (editingId === id) startNew()
   }
   const duplicate = (t: Theme): void => {

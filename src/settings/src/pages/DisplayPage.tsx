@@ -8,7 +8,7 @@ type Props = { prefs: Prefs }
 
 export function DisplayPage({ prefs }: Props): JSX.Element {
   const set = (patch: Partial<Prefs>): void => {
-    void window.flide.prefs.set(patch)
+    void window.flipperV.prefs.set(patch)
   }
   return (
     <div className="space-y-6 p-6">

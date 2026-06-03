@@ -4,26 +4,45 @@ import { join } from 'node:path'
 import { createFloatingWindow, createSettingsWindow, getFloatingWindow } from './windows'
 import { registerIpcHandlers } from './ipc'
 
-const FLIPPER_USB_VID = '0483'
-const FLIPPER_USB_PID = '5740'
+/**
+ * Flipper Zero USB identifiers. We match numerically because Electron
+ * reports vendorId/productId as decimal strings (e.g. "1155") on some
+ * platforms and hex strings (e.g. "0483") on others — comparing as
+ * numbers normalizes that.
+ */
+const FLIPPER_USB_VID = 0x0483
+const FLIPPER_USB_PID = 0x5740
 
 let tray: Tray | null = null
 
 function setupWebSerial(): void {
   const ses = session.defaultSession
 
-  // 1) Auto-pick the first Flipper if WebSerial fires a port picker.
+  // Auto-pick the Flipper if it's in the system port list. If no Flipper
+  // is plugged in, log what *was* available — useful for diagnosing
+  // "no devices found" cases (wrong cable, USB permissions, WSL without
+  // usbipd, etc.). We never silently fall back to a non-Flipper port —
+  // the bundle's RPC only talks to Flippers.
   ses.on('select-serial-port', (event, portList, _webContents, callback) => {
     event.preventDefault()
     const flipper = portList.find(
-      (p) =>
-        p.vendorId?.toLowerCase() === FLIPPER_USB_VID &&
-        p.productId?.toLowerCase() === FLIPPER_USB_PID
+      (p) => Number(p.vendorId) === FLIPPER_USB_VID && Number(p.productId) === FLIPPER_USB_PID
     )
-    callback(flipper ? flipper.portId : portList[0]?.portId ?? '')
+    if (flipper) {
+      callback(flipper.portId)
+      return
+    }
+    if (portList.length === 0) {
+      console.log('[flipper-v] select-serial-port: no USB serial devices visible to the system')
+    } else {
+      console.log(
+        '[flipper-v] select-serial-port: no Flipper found. Available:',
+        portList.map((p) => `${p.vendorId}:${p.productId} (${p.displayName || p.portName})`)
+      )
+    }
+    callback('')
   })
 
-  // 2) Allow `navigator.serial.requestPort()` from our renderer to succeed.
   ses.setPermissionCheckHandler((_wc, permission) => {
     return permission === 'serial' || permission === 'hid' || permission === 'usb'
   })
@@ -36,7 +55,7 @@ function setupTray(): void {
     const icon = nativeImage.createFromPath(join(__dirname, '../../resources/tray.png'))
     if (icon.isEmpty()) return
     tray = new Tray(icon.resize({ width: 16, height: 16 }))
-    tray.setToolTip('Flide — Floating Flipper')
+    tray.setToolTip('Flipper V — Floating Flipper')
     tray.setContextMenu(
       Menu.buildFromTemplate([
         {
@@ -64,7 +83,7 @@ function setupTray(): void {
 }
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.codingbutter.flide')
+  electronApp.setAppUserModelId('com.codingbutter.flipperv')
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })

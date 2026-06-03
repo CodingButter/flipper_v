@@ -1,4 +1,7 @@
-import { BUNDLE_URL } from './constants'
+// `?url` tells Vite to emit the bundle as a static asset and give us its
+// runtime URL. The file itself isn't parsed/transformed — it's the same
+// ES module from the original IDE prototype.
+import bundleUrl from './flipper-mirror-bundle.js?url'
 
 /**
  * The bundle deals in `navigator.serial`'s SerialPort. Until TypeScript's
@@ -62,15 +65,9 @@ export interface FlipperBundle {
 
 let cached: Promise<FlipperBundle> | null = null
 
-/**
- * Dynamically imports the bundle from `public/`. We use a dynamic import so
- * Vite leaves the file alone (it's already an ES module). `@vite-ignore`
- * keeps Vite from trying to analyze the URL — `BUNDLE_URL` is a runtime
- * absolute path.
- */
 export function loadBundle(): Promise<FlipperBundle> {
   if (!cached) {
-    cached = import(/* @vite-ignore */ BUNDLE_URL) as Promise<FlipperBundle>
+    cached = import(/* @vite-ignore */ bundleUrl) as Promise<FlipperBundle>
   }
   return cached
 }

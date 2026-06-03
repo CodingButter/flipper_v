@@ -1,4 +1,4 @@
-# Flide — Floating Virtual Flipper Zero
+# Flipper V — Floating Virtual Flipper Zero
 
 A cross-platform desktop app that puts a 3D Flipper Zero on your desktop. It
 mirrors a real device over WebSerial — the live screen renders on the model
@@ -27,6 +27,10 @@ bun run dev
 `bun run dev` starts both the main floating window and the settings window
 (opened via the hover toolbar → ⚙). `npm` works too — the project doesn't
 depend on bun-specific APIs.
+
+> **Developing on WSL2?** USB devices don't reach WSL by default. See
+> [`scripts/README.md`](scripts/README.md) for a one-time setup that
+> auto-attaches your Flipper to WSL on every logon.
 
 ## Build distributables locally
 
@@ -58,7 +62,7 @@ re-publish the latest tag).
 ```
 src/
   main/        Electron main process — windows, WebSerial, IPC, persistence
-  preload/     contextBridge API exposed to renderers as window.flide
+  preload/     contextBridge API exposed to renderers as window.flipperV
   renderer/    Floating 3D window (Three.js scene + tiny hover toolbar)
   settings/    Separate settings window (shadcn/ui)
   shared/      Types + built-in themes shared across processes
@@ -79,10 +83,11 @@ current terms. If you fork this project, keep the credit and the link
 intact.
 
 The WebSerial RPC / screen-streaming layer in `flipper-mirror-bundle.js`
-is the same runtime used by the open-source Flipper IDE prototype.
+is a prebuilt JavaScript module — it ships as-is in this repo as the
+runtime that talks to a real Flipper Zero over USB.
 
 ## License
 
-The Flide application code is MIT. The Flipper Zero 3D model is **not**
+The Flipper V application code is MIT. The Flipper Zero 3D model is **not**
 covered by the MIT license — its rights belong to the original artist
 under the Sketchfab terms linked above.

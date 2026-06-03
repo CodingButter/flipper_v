@@ -1,5 +1,5 @@
 {
-  "name": "flide-floating-flipper",
+  "name": "flipper-v",
   "version": "0.1.0",
   "description": "A floating virtual Flipper Zero — 3D model on your desktop that mirrors a real device over WebSerial.",
   "main": "out/main/index.js",
@@ -21,7 +21,7 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^3.0.0",
-    "electron-store": "^10.0.0"
+    "electron-store": "^8.2.0"
   },
   "devDependencies": {
     "@electron-toolkit/tsconfig": "^1.0.1",

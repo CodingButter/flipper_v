@@ -1,27 +1,84 @@
-import type { Prefs } from '../../../shared/types'
+import type { ConnStatus, Prefs } from '../../../shared/types'
 
 type Props = {
   visible: boolean
   prefs: Prefs | null
+  conn: ConnStatus
+  /** Direct (sync) handlers so the user gesture reaches navigator.serial.requestPort. */
+  onConnect: () => void
+  onDisconnect: () => void
 }
 
 /**
- * Tiny overlay shown on hover. Settings is the only entry into the
- * shadcn-styled settings window. The right edge has a drag region for
- * moving the floating window around.
+ * Tiny overlay shown on hover. Connect / settings / pin / hide. The
+ * connection state is reflected in the Connect button's color: green when
+ * live, red on error, dim when idle.
  */
-export function Toolbar({ visible, prefs }: Props): JSX.Element {
+export function Toolbar({
+  visible,
+  prefs,
+  conn,
+  onConnect,
+  onDisconnect
+}: Props): JSX.Element {
   const opacityClass = visible ? 'opacity-100' : 'opacity-0'
+  const isConnected = conn.state === 'connected'
+  const isConnecting = conn.state === 'connecting'
+  const isDisconnecting = conn.state === 'disconnecting'
+  const inTransition = isConnecting || isDisconnecting
+  const handleConnectClick = (): void => {
+    if (inTransition) return
+    if (isConnected) onDisconnect()
+    else onConnect()
+  }
+  const label = isConnected
+    ? 'Connected'
+    : isConnecting
+      ? 'Connecting…'
+      : isDisconnecting
+        ? 'Disconnecting…'
+        : 'Connect'
   return (
     <div
-      className={`pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-1 p-2 transition-opacity duration-150 ${opacityClass}`}
+      className={`pointer-events-none absolute inset-x-0 top-0 flex items-start justify-end gap-1 p-2 transition-opacity duration-150 ${opacityClass}`}
     >
-      <div className="draggable pointer-events-auto h-7 flex-1 rounded-md bg-black/30 backdrop-blur-sm" />
-      <div className="interactive pointer-events-auto flex items-center gap-1 rounded-md bg-black/50 px-1.5 py-1 backdrop-blur">
+      <div className="interactive pointer-events-auto flex items-center gap-1 rounded-md bg-black/55 px-1.5 py-1 backdrop-blur">
+        <button
+          type="button"
+          title={
+            isConnected
+              ? 'Connected — click to disconnect'
+              : isConnecting
+                ? 'Connecting…'
+                : 'Connect to Flipper (WebSerial)'
+          }
+          onClick={handleConnectClick}
+          disabled={inTransition}
+          className={`flex h-7 items-center gap-1.5 rounded px-2 text-xs ${
+            isConnected
+              ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30'
+              : conn.state === 'error'
+                ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
+                : 'bg-white/10 text-white/80 hover:bg-white/20'
+          }`}
+        >
+          <span
+            className={`inline-block h-1.5 w-1.5 rounded-full ${
+              isConnected
+                ? 'bg-green-400'
+                : inTransition
+                  ? 'bg-yellow-300 animate-pulse'
+                  : conn.state === 'error'
+                    ? 'bg-red-400'
+                    : 'bg-white/50'
+            }`}
+          />
+          {label}
+        </button>
         <button
           type="button"
           title="Settings"
-          onClick={() => window.flide.window.openSettings()}
+          onClick={() => window.flipperV.window.openSettings()}
           className="flex h-7 w-7 items-center justify-center rounded text-white/80 hover:bg-white/10 hover:text-white"
         >
           <SettingsIcon />
@@ -30,7 +87,7 @@ export function Toolbar({ visible, prefs }: Props): JSX.Element {
           type="button"
           title={prefs?.alwaysOnTop ? 'Always on top: on' : 'Always on top: off'}
           onClick={() =>
-            window.flide.prefs.set({ alwaysOnTop: !(prefs?.alwaysOnTop ?? true) })
+            window.flipperV.prefs.set({ alwaysOnTop: !(prefs?.alwaysOnTop ?? true) })
           }
           className={`flex h-7 w-7 items-center justify-center rounded ${
             prefs?.alwaysOnTop ? 'text-orange-400' : 'text-white/60'
@@ -41,7 +98,7 @@ export function Toolbar({ visible, prefs }: Props): JSX.Element {
         <button
           type="button"
           title="Hide window"
-          onClick={() => window.flide.window.hideFloating()}
+          onClick={() => window.flipperV.window.hideFloating()}
           className="flex h-7 w-7 items-center justify-center rounded text-white/80 hover:bg-white/10 hover:text-white"
         >
           <HideIcon />

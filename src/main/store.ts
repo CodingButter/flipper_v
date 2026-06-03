@@ -1,5 +1,6 @@
 import Store from 'electron-store'
 import type { Prefs, Theme } from '../shared/types'
+import { DEFAULT_KEY_BINDINGS } from '../shared/types'
 import { BUILTIN_THEMES, DEFAULT_THEME_ID } from '../shared/themes'
 
 type Schema = {
@@ -15,13 +16,35 @@ const defaults: Schema = {
     opacity: 1,
     activeThemeId: DEFAULT_THEME_ID,
     clickThrough: false,
-    showDragHandle: true
+    showDragHandle: true,
+    chromaKey: false,
+    chromaColor: '#00ff00',
+    keyBindings: DEFAULT_KEY_BINDINGS,
+    splashImage: null
   }
 }
 
 const store = new Store<Schema>({ defaults })
 
-export const getPrefs = (): Prefs => store.get('prefs')
+/**
+ * Read prefs and backfill any keys that older saved versions of the
+ * schema were missing. electron-store's `defaults` only fills MISSING
+ * top-level keys, so an old `prefs` object that predates `keyBindings`
+ * (or `chromaKey`, etc.) would surface those as `undefined` — and the
+ * renderer crashes on `Object.keys(undefined)`. This is the migration
+ * path until we add a proper schema version.
+ */
+export const getPrefs = (): Prefs => {
+  const stored = store.get('prefs') as Partial<Prefs>
+  return {
+    ...defaults.prefs,
+    ...stored,
+    keyBindings: {
+      ...defaults.prefs.keyBindings,
+      ...(stored.keyBindings ?? {})
+    }
+  }
+}
 export const setPrefs = (patch: Partial<Prefs>): Prefs => {
   const next = { ...getPrefs(), ...patch }
   store.set('prefs', next)
