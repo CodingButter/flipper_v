@@ -46,15 +46,27 @@ jobs:
       - name: Build renderer + main
         run: bun run build
 
+      - name: Install AzureSignTool (Windows)
+        if: matrix.os == 'windows-latest'
+        run: dotnet tool install --global AzureSignTool
+
       - name: Package & publish to GitHub Release
         env:
           # electron-builder uploads the artifacts to the Release that
           # matches the pushed tag.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Code signing / notarization intentionally skipped for v1 —
-          # users will see "unidentified developer" warnings until we wire
-          # up signing certs.
+          # macOS keychain auto-discovery off — we don't have an Apple
+          # Developer ID cert yet.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          # Azure Artifact Signing — build/sign.js no-ops when
+          # AZURE_CERT_PROFILE_NAME is unset, so secrets missing →
+          # unsigned build (does not fail).
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_ENDPOINT: ${{ secrets.AZURE_ENDPOINT }}
+          AZURE_CODE_SIGNING_NAME: ${{ secrets.AZURE_CODE_SIGNING_NAME }}
+          AZURE_CERT_PROFILE_NAME: ${{ secrets.AZURE_CERT_PROFILE_NAME }}
         # `npx` (Node) instead of `bunx --bun` (Bun) — electron-builder's
         # transitive bluebird + source-map-support combo crashes under
         # the Bun runtime ("Column must be greater than or equal to 0").
