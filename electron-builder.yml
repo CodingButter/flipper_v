@@ -8,6 +8,12 @@ files:
   - out/**/*
   - package.json
   - '!**/*.{md,map,ts}'
+# Copy tray.png to process.resourcesPath/tray.png in the packaged app.
+# `buildResources` only feeds the build itself (icon embedded in .exe);
+# anything the main process loads at runtime must be copied here.
+extraResources:
+  - from: resources/tray.png
+    to: tray.png
 asar: true
 mac:
   category: public.app-category.developer-tools
