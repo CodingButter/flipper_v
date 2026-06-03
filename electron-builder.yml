@@ -11,9 +11,14 @@ files:
 asar: true
 mac:
   category: public.app-category.developer-tools
+  # Both Apple Silicon and Intel binaries so the same Release covers
+  # every Mac. Universal would double the size of the single binary —
+  # cheaper to ship two arch-specific artifacts.
   target:
-    - dmg
-    - zip
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
 win:
   target:
     - nsis
