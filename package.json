@@ -3,7 +3,10 @@
   "version": "0.1.2",
   "description": "A floating virtual Flipper Zero — 3D model on your desktop that mirrors a real device over WebSerial.",
   "main": "out/main/index.js",
-  "author": "codingbutter",
+  "author": {
+    "name": "codingbutter",
+    "email": "jamienichols@codingbutter.com"
+  },
   "license": "MIT",
   "private": true,
   "scripts": {
