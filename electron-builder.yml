@@ -32,6 +32,13 @@ nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
+  # Force hyphenated filename so the on-disk artifact, the path in
+  # latest.yml (which electron-builder normalises with hyphens) and
+  # the URL stored on GitHub (which would otherwise convert spaces
+  # to dots) all match exactly. Without this, electron-updater 404s.
+  artifactName: Flipper-V-Setup-${version}.${ext}
+portable:
+  artifactName: Flipper-V-${version}.${ext}
 publish:
   provider: github
   owner: CodingButter
