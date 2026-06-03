@@ -31,7 +31,17 @@ Download the build for your OS from the [latest release](https://github.com/Codi
 
 The app **auto-updates** from the in-app About page once installed — when a new release is published, click **Check for updates** → **Update to vX.Y.Z** → **Install & Restart** and the new version takes over.
 
-> **Code signing.** Windows builds are signed via [Microsoft Trusted Signing](https://learn.microsoft.com/en-us/azure/trusted-signing/) — publisher identity **Jamie Nichols**, verified by Microsoft. SmartScreen accepts the signature. macOS builds aren't signed with an Apple Developer ID yet, so Gatekeeper will warn on first launch — right-click → **Open** to bypass.
+> **Code signing.** Windows builds are signed via [Microsoft Trusted Signing](https://learn.microsoft.com/en-us/azure/trusted-signing/) — publisher identity **Jamie Nichols**, verified by Microsoft. macOS builds aren't signed with an Apple Developer ID yet, so Gatekeeper will warn on first launch — right-click → **Open** to bypass.
+
+### Microsoft Defender SmartScreen
+
+On the first run of an installer, Windows may show this:
+
+<p align="center">
+  <img src="resources/MSS.jpg" alt="Microsoft Defender SmartScreen warning" width="500" />
+</p>
+
+The signature is valid — SmartScreen still shows this for installers with low download counts, even when correctly signed, until enough people have run them. Click **More info** → **Run anyway** to proceed. The dialog goes away on its own as more people install the release.
 
 ### Smart App Control (Windows 11)
 
