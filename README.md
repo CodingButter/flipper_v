@@ -31,7 +31,29 @@ Download the build for your OS from the [latest release](https://github.com/Codi
 
 The app **auto-updates** from the in-app About page once installed — when a new release is published, click **Check for updates** → **Update to vX.Y.Z** → **Install & Restart** and the new version takes over.
 
-> **Note on code signing.** The v0 builds aren't signed yet, so Windows SmartScreen and macOS Gatekeeper will warn on first launch. Click **More info → Run anyway** on Windows or right-click → **Open** on macOS to bypass. Signed builds are on the roadmap.
+> **Code signing.** Windows builds are signed via [Microsoft Trusted Signing](https://learn.microsoft.com/en-us/azure/trusted-signing/) — publisher identity **Jamie Nichols**, verified by Microsoft. SmartScreen accepts the signature. macOS builds aren't signed with an Apple Developer ID yet, so Gatekeeper will warn on first launch — right-click → **Open** to bypass.
+
+### Smart App Control (Windows 11)
+
+On Windows 11 with Smart App Control enabled, you may see this on first run:
+
+<p align="center">
+  <img src="resources/SAC.jpg" alt="Smart App Control block dialog" width="540" />
+</p>
+
+The installer **is** correctly signed — SAC blocks based on file/publisher *reputation*, not signature validity. Reputation builds automatically as more users install, so this clears itself over time. While you wait, you have three options:
+
+**1. Wait it out.** Every install on a SAC-enabled machine adds to the publisher rep. After Microsoft sees enough copies, SAC stops asking.
+
+**2. Build from source.** Follow [Develop](#develop) below and you'll have a working local build that SAC doesn't scrutinize.
+
+**3. Turn Smart App Control off.** Open **Windows Security → App & browser control → Smart App Control settings** and flip the toggle to **Off**.
+
+<p align="center">
+  <img src="resources/SAC-Disable.png" alt="Disable Smart App Control in Windows Security" width="720" />
+</p>
+
+> ⚠️ **Disabling SAC is a one-way switch.** Microsoft locks the setting once you turn it off — you can't turn it back on without a clean Windows reinstall. Only do this if you're comfortable without SAC. SmartScreen still works afterwards, so you don't lose all protection.
 
 ## Features
 
